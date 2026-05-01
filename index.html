@@ -574,12 +574,7 @@
 
     <div id="results-bar"></div>
 
-    <div id="list-view">
-      <div id="empty-state">
-        <div class="empty-icon">🎵</div>
-        <p>No se encontraron canciones<br>con esos criterios.</p>
-      </div>
-    </div>
+    <div id="list-view"></div>
   </div>
 
   <!-- DETAIL VIEW -->
@@ -716,18 +711,14 @@ function highlight(text, q) {
 // ─── RENDER LIST ─────────────────────────────────────────────────────────────
 function renderList(songs) {
   const list = document.getElementById('list-view');
-  const empty = document.getElementById('empty-state');
   const bar = document.getElementById('results-bar');
   const q = getQuery();
 
   if (!songs.length) {
-    list.innerHTML = '';
-    list.appendChild(empty);
-    empty.style.display = 'block';
+    list.innerHTML = '<div id="empty-state"><div class="empty-icon">🎵</div><p>No se encontraron canciones<br>con esos criterios.</p></div>';
     bar.textContent = '0 canciones';
     return;
   }
-  empty.style.display = 'none';
   bar.textContent = `${songs.length} canción${songs.length !== 1 ? 'es' : ''}`;
 
   const frag = document.createDocumentFragment();
