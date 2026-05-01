@@ -298,6 +298,16 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .song-it {
+      font-size: 12px;
+      color: var(--muted);
+      opacity: .7;
+      font-style: italic;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .song-tags { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
     .tag {
       font-size: 10px;
@@ -738,6 +748,7 @@ function renderList(songs) {
       <div class="song-info">
         <div class="song-lv">${highlight(s.lv, q)}</div>
         ${s.es ? `<div class="song-es">${highlight(s.es, q)}</div>` : ''}
+        ${s.it ? `<div class="song-it">${highlight(s.it, q)}</div>` : ''}
         ${tags.length ? `<div class="song-tags">${tags.join('')}</div>` : ''}
       </div>
       <div class="song-icons">
