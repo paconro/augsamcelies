@@ -718,7 +718,7 @@
       </div>
       <div id="pdf-section" style="display:none">
         <button id="open-pdf-btn" onclick="openPDF()">
-          <span id="pdf-btn-icon">📄</span> <span id="pdf-btn-label">PDF</span>
+          <span>📄</span> <span>PDF</span>
         </button>
         <button id="download-pdf-btn" onclick="downloadPDF()">
           <span id="dl-pdf-icon">⬇</span> <span id="dl-pdf-label">Guardar offline</span>
@@ -1215,6 +1215,18 @@ function downloadAudio() {
 }
 
 // ─── PDF ─────────────────────────────────────────────────────────────────────
+// Cloudflare Worker proxy URL — actualiza esto cuando despliegues el Worker
+const PROXY_URL = 'https://nameless-queen-4c03.paco-nro.workers.dev/';
+
+function proxiedUrl(url) {
+  if (!url) return url;
+  // Only proxy Google Drive URLs
+  if (url.includes('drive.google.com')) {
+    return `${PROXY_URL}?url=${encodeURIComponent(url)}`;
+  }
+  return url; // sanmartinvalencia.es ya tiene CORS correcto
+}
+
 const PDF_STORE = 'pdfs';
 
 function openDB_PDF() {
@@ -1273,15 +1285,12 @@ function openPDF() {
 function downloadPDF() {
   if (!currentSong?.pdf) return;
   const btn = document.getElementById('download-pdf-btn');
-  if (btn.classList.contains('downloaded')) {
-    // Already saved — open it
-    openPDF();
-    return;
-  }
+  if (btn.classList.contains('downloaded')) { openPDF(); return; }
+
   document.getElementById('dl-pdf-label').textContent = 'Descargando…';
   document.getElementById('dl-pdf-icon').textContent = '⏳';
 
-  fetch(currentSong.pdf)
+  fetch(proxiedUrl(currentSong.pdf))
     .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
     .then(blob => saveLocalPDF(currentSong.id, blob))
     .then(() => {
@@ -1314,7 +1323,7 @@ async function bulkDownloadPDFs() {
     if (existing) { done++; }
     else {
       try {
-        const r = await fetch(song.pdf);
+        const r = await fetch(proxiedUrl(song.pdf));
         if (!r.ok) throw new Error(r.status);
         const blob = await r.blob();
         await saveLocalPDF(song.id, blob);
