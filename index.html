@@ -503,25 +503,99 @@
     #download-audio-btn:hover { border-color: var(--accent); color: var(--accent); }
     #download-audio-btn.downloaded { border-color: #9fc4a0; color: #9fc4a0; }
 
-    /* PDF button */
-    #pdf-btn {
+    /* PDF section */
+    #pdf-section {
+      margin-bottom: 16px;
+    }
+    #open-pdf-btn {
       width: 100%;
       background: var(--card);
-      border: 1px solid var(--accent2);
+      border: 1.5px solid var(--accent2);
       border-radius: var(--radius);
       color: var(--accent2);
       font-family: inherit;
-      font-size: 15px;
-      padding: 14px;
+      font-size: 17px;
+      font-weight: 600;
+      padding: 16px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       transition: background .2s;
     }
-    #pdf-btn:active { background: rgba(126,159,196,.15); }
+    #open-pdf-btn:active { background: rgba(126,159,196,.15); }
+    #download-pdf-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      transition: all .2s;
+    }
+    #download-pdf-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+    #download-pdf-btn.downloaded { border-color: #9fc4a0; color: #9fc4a0; }
+
+    /* Bulk download */
+    #bulk-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    #bulk-section h3 {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    #bulk-progress-wrap { margin: 10px 0; display: none; }
+    #bulk-bar-outer {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    #bulk-bar-fill {
+      height: 100%;
+      background: var(--accent2);
+      border-radius: 3px;
+      width: 0%;
+      transition: width .3s;
+    }
+    #bulk-status { font-size: 13px; color: var(--muted); }
+    .btn-bulk {
+      width: 100%;
+      background: transparent;
+      border: 1.5px solid var(--accent2);
+      border-radius: 10px;
+      color: var(--accent2);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .2s;
+    }
+    .btn-bulk:active { background: rgba(126,159,196,.15); }
+    .btn-bulk:disabled { opacity: .4; cursor: default; }
 
     /* Texto */
     #texto-section {
@@ -540,8 +614,8 @@
     }
     #texto-content {
       font-family: 'Playfair Display', serif;
-      font-size: 15px;
-      line-height: 1.7;
+      font-size: 19px;
+      line-height: 1.85;
       color: var(--text);
       white-space: pre-wrap;
     }
@@ -642,12 +716,25 @@
           <span id="dl-icon">⬇</span> <span id="dl-label">Descargar para uso offline</span>
         </button>
       </div>
-      <button id="pdf-btn" onclick="openPDF()" style="display:none">
-        📄 Ver partitura (PDF)
-      </button>
+      <div id="pdf-section" style="display:none">
+        <button id="open-pdf-btn" onclick="openPDF()">
+          <span id="pdf-btn-icon">📄</span> <span id="pdf-btn-label">PDF</span>
+        </button>
+        <button id="download-pdf-btn" onclick="downloadPDF()">
+          <span id="dl-pdf-icon">⬇</span> <span id="dl-pdf-label">Guardar offline</span>
+        </button>
+      </div>
       <div id="texto-section" style="display:none">
         <h3>📜 Texto</h3>
         <div id="texto-content"></div>
+      </div>
+      <div id="bulk-section">
+        <h3>📥 Descarga masiva</h3>
+        <button class="btn-bulk" id="bulk-btn" onclick="bulkDownloadPDFs()">⬇ Descargar todos los PDFs offline</button>
+        <div id="bulk-progress-wrap">
+          <div id="bulk-bar-outer"><div id="bulk-bar-fill"></div></div>
+          <div id="bulk-status"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -900,8 +987,13 @@ function openDetail(song) {
   }
 
   // PDF
-  const pdfBtn = document.getElementById('pdf-btn');
-  pdfBtn.style.display = song.pdf ? 'flex' : 'none';
+  const pdfSec = document.getElementById('pdf-section');
+  if (song.pdf) {
+    pdfSec.style.display = 'block';
+    checkIfPDFDownloaded(song.id);
+  } else {
+    pdfSec.style.display = 'none';
+  }
 
   // Texto
   const textoSec = document.getElementById('texto-section');
@@ -932,10 +1024,15 @@ function closeDetail() {
 // ─── AUDIO PLAYER ────────────────────────────────────────────────────────────
 let isPlaying = false;
 
+let currentBlobUrl = null;
+
 function getAudioSrc(song) {
-  // Check if we have a locally cached version in IndexedDB
   return getLocalAudio(song.id).then(blob => {
-    if (blob) return URL.createObjectURL(blob);
+    if (blob) {
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = URL.createObjectURL(blob);
+      return currentBlobUrl;
+    }
     return song.audio;
   });
 }
@@ -1088,19 +1185,27 @@ function checkIfDownloaded(id) {
 function downloadAudio() {
   if (!currentSong?.audio) return;
   const btn = document.getElementById('download-audio-btn');
-  // If already downloaded, nothing to do
   if (btn.classList.contains('downloaded')) return;
 
   document.getElementById('dl-label').textContent = 'Descargando…';
   document.getElementById('dl-icon').textContent = '⏳';
 
   fetch(currentSong.audio)
-    .then(r => r.blob())
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
     .then(blob => saveLocalAudio(currentSong.id, blob))
     .then(() => {
       btn.classList.add('downloaded');
       document.getElementById('dl-icon').textContent = '✓';
       document.getElementById('dl-label').textContent = 'Audio guardado offline';
+      // Reload audio from local blob so it works immediately
+      getAudioSrc(currentSong).then(src => {
+        const wasPlaying = isPlaying;
+        const currentTime = audioEl.currentTime;
+        audioEl.src = src;
+        audioEl.dataset.songId = currentSong.id;
+        audioEl.currentTime = currentTime;
+        if (wasPlaying) audioEl.play();
+      });
     })
     .catch(() => {
       document.getElementById('dl-icon').textContent = '✕';
@@ -1110,9 +1215,125 @@ function downloadAudio() {
 }
 
 // ─── PDF ─────────────────────────────────────────────────────────────────────
+const PDF_STORE = 'pdfs';
+
+function openDB_PDF() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('dziesmas-pdf', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(PDF_STORE);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+function getLocalPDF(id) {
+  return openDB_PDF().then(db => new Promise(res => {
+    const req = db.transaction(PDF_STORE, 'readonly').objectStore(PDF_STORE).get(id);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror = () => res(null);
+  }));
+}
+
+function saveLocalPDF(id, blob) {
+  return openDB_PDF().then(db => new Promise(res => {
+    const tx = db.transaction(PDF_STORE, 'readwrite');
+    tx.objectStore(PDF_STORE).put(blob, id);
+    tx.oncomplete = res;
+  }));
+}
+
+function checkIfPDFDownloaded(id) {
+  getLocalPDF(id).then(blob => {
+    const btn = document.getElementById('download-pdf-btn');
+    if (blob) {
+      btn.classList.add('downloaded');
+      document.getElementById('dl-pdf-icon').textContent = '✓';
+      document.getElementById('dl-pdf-label').textContent = 'PDF guardado offline';
+    } else {
+      btn.classList.remove('downloaded');
+      document.getElementById('dl-pdf-icon').textContent = '⬇';
+      document.getElementById('dl-pdf-label').textContent = 'Guardar offline';
+    }
+  });
+}
+
 function openPDF() {
   if (!currentSong?.pdf) return;
-  window.open(currentSong.pdf, '_blank');
+  // Try local first, then remote
+  getLocalPDF(currentSong.id).then(blob => {
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } else {
+      window.open(currentSong.pdf, '_blank');
+    }
+  });
+}
+
+function downloadPDF() {
+  if (!currentSong?.pdf) return;
+  const btn = document.getElementById('download-pdf-btn');
+  if (btn.classList.contains('downloaded')) {
+    // Already saved — open it
+    openPDF();
+    return;
+  }
+  document.getElementById('dl-pdf-label').textContent = 'Descargando…';
+  document.getElementById('dl-pdf-icon').textContent = '⏳';
+
+  fetch(currentSong.pdf)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(blob => saveLocalPDF(currentSong.id, blob))
+    .then(() => {
+      btn.classList.add('downloaded');
+      document.getElementById('dl-pdf-icon').textContent = '✓';
+      document.getElementById('dl-pdf-label').textContent = 'PDF guardado offline';
+    })
+    .catch(() => {
+      document.getElementById('dl-pdf-icon').textContent = '✕';
+      document.getElementById('dl-pdf-label').textContent = 'Error al descargar';
+      setTimeout(() => checkIfPDFDownloaded(currentSong.id), 2000);
+    });
+}
+
+// ─── BULK PDF DOWNLOAD ────────────────────────────────────────────────────────
+async function bulkDownloadPDFs() {
+  const btn = document.getElementById('bulk-btn');
+  const wrap = document.getElementById('bulk-progress-wrap');
+  const fill = document.getElementById('bulk-bar-fill');
+  const status = document.getElementById('bulk-status');
+
+  const songsWithPDF = SONGS.filter(s => s.pdf);
+  let done = 0, errors = 0;
+
+  btn.disabled = true;
+  wrap.style.display = 'block';
+
+  for (const song of songsWithPDF) {
+    const existing = await getLocalPDF(song.id);
+    if (existing) { done++; }
+    else {
+      try {
+        const r = await fetch(song.pdf);
+        if (!r.ok) throw new Error(r.status);
+        const blob = await r.blob();
+        await saveLocalPDF(song.id, blob);
+        done++;
+      } catch (e) {
+        errors++;
+      }
+    }
+    const pct = Math.round((done + errors) / songsWithPDF.length * 100);
+    fill.style.width = pct + '%';
+    status.textContent = `${done + errors} / ${songsWithPDF.length}${errors ? ` (${errors} errores)` : ''}`;
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  btn.disabled = false;
+  btn.textContent = errors ? `✓ ${done} PDFs guardados (${errors} errores)` : `✓ Todos los PDFs guardados offline`;
+  btn.style.borderColor = '#9fc4a0';
+  btn.style.color = '#9fc4a0';
+  if (currentSong) checkIfPDFDownloaded(currentSong.id);
 }
 
 // ─── OFFLINE DETECTION ────────────────────────────────────────────────────────
